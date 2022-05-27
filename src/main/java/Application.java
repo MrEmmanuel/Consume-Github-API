@@ -1,8 +1,9 @@
+import java.io.IOException;
 import java.util.List;
 
 public class Application {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         List<PullRequests> pullRequests = new ConsumeGithubAPI().getPullRequests(
                 "Umuzi-org",
                 "ACN-syllabus",
