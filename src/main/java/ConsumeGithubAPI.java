@@ -82,7 +82,7 @@ public class ConsumeGithubAPI {
             id = response.getJSONObject(i).get("id").toString();
             user = response.getJSONObject(i).get("user").toString();
             title = response.getJSONObject(i).get("title").toString();
-            dateCreated = response.getJSONObject(i).get("dateCreated").toString();
+            dateCreated = response.getJSONObject(i).get("created_at").toString();
             state = response.getJSONObject(i).get("state").toString();
 
             pullRequests.add(new PullRequests(id,user,title,state,dateCreated));
