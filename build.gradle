@@ -15,6 +15,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation 'org.json:json:20210307'
     implementation 'org.kohsuke:github-api:1.135'
+    implementation("com.squareup.okhttp3:okhttp:4.9.0")
     
 }
 
