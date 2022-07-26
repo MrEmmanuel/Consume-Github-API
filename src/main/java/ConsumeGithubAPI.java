@@ -5,17 +5,20 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public class ConsumeGithubAPI {
     public ArrayList<PullRequests> getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws IOException {
-        ArrayList<PullRequests> listOfPullRequests = new ArrayList<>();
+        ArrayList<PullRequests> listOfPullRequests;
         String jsonResponse = makeHttpRequest(createUrl(owner,repositoryName));
-
-
+        listOfPullRequests = parseJson(jsonResponse);
+        
         return listOfPullRequests;
     }
 
@@ -55,6 +58,26 @@ public class ConsumeGithubAPI {
         }
         return jsonResponse;
     }
+    private static Date formatDate(String date){
+        Date format = null;
+    try{
+        format = new SimpleDateFormat("yyyy-MM-dd").parse(date);
+        return format;
+    } catch (Exception e) {
+        return null;
+    }
+    }
+    private static boolean checkDate(String start, String end, String createdDate){
+        Date startDate = formatDate(start);
+        Date endDate = formatDate(end);
+        Date dateCreated = formatDate(createdDate);
+
+        try{
+            return dateCreated.after(startDate) && dateCreated.before(endDate);
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     private static String readFromInputStream(InputStream stream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
@@ -75,6 +98,8 @@ public class ConsumeGithubAPI {
         String title;
         String dateCreated;
         String state;
+
+
         ArrayList<PullRequests> pullRequests = new ArrayList<>();
 
         JSONArray response = new JSONArray(jsonResponse);
@@ -85,7 +110,7 @@ public class ConsumeGithubAPI {
             dateCreated = response.getJSONObject(i).get("created_at").toString();
             state = response.getJSONObject(i).get("state").toString();
 
-            pullRequests.add(new PullRequests(id,user,title,state,dateCreated));
+                pullRequests.add(new PullRequests(id, user, title, state, dateCreated));
         }
         return pullRequests;
     }
