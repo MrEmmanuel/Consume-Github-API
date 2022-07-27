@@ -6,6 +6,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 
@@ -13,17 +15,17 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 public class ConsumeGithubAPI {
-    public ArrayList<PullRequests> getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws IOException {
+    public static void getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws IOException {
         ArrayList<PullRequests> listOfPullRequests;
         String jsonResponse = makeHttpRequest(createUrl(owner,repositoryName));
         listOfPullRequests = parseJson(jsonResponse, startDate,endDate);
 
-        return listOfPullRequests;
+        System.out.println(listOfPullRequests);
     }
 
     public static URL createUrl(String user, String repoName) throws MalformedURLException {
 
-        String urlString = "https://api.github.com/repos/" + user + "/" + repoName +"/pulls?state=all";
+        String urlString = "https://api.github.com/repos/" + user + "/" + repoName +"/pulls";
         URL url = new URL(urlString);
         return url;
     }
@@ -40,7 +42,7 @@ public class ConsumeGithubAPI {
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.setReadTimeout(10000);
-            connection.setConnectTimeout(15000);
+            connection.setConnectTimeout(20000);
             connection.connect();
 
             if (connection.getResponseCode() == 200){
@@ -57,14 +59,23 @@ public class ConsumeGithubAPI {
         }
         return jsonResponse;
     }
+    public static LocalDate getDateFromString(String string, DateTimeFormatter format) {
 
+        LocalDate date = LocalDate.parse(string, format);
+
+        return date;
+    }
     private static boolean checkDate(String start, String end, String createdDate){
+
+        DateTimeFormatter formatDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         try{
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-mm-dd");
-            Date startDate = format.parse(start.substring(0,10));
-            Date endDate = format.parse(end.substring(0,10));
-            Date created_at = format.parse(createdDate.substring(0,10));
-            return created_at.after(startDate) && created_at.before(endDate);
+
+            LocalDate startDate = getDateFromString(start, formatDate);
+            LocalDate endDate = getDateFromString(end, formatDate);
+            LocalDate created_at = getDateFromString(createdDate, formatDate);
+            boolean results = created_at.isAfter(startDate) && created_at.isBefore(endDate);
+            return results;
+
         } catch (Exception e) {
             return false;
         }
@@ -89,7 +100,7 @@ public class ConsumeGithubAPI {
         String created_at;
         String state;
         String closed_at;
-        String update_at;
+        String updated_at;
         String merged_at;
 
         ArrayList<PullRequests> pullRequests = new ArrayList<>();
@@ -102,10 +113,10 @@ public class ConsumeGithubAPI {
             state = response.getJSONObject(i).get("state").toString();
             created_at = response.getJSONObject(i).get("created_at").toString().substring(0,10);
             closed_at = response.getJSONObject(i).get("closed_at").toString();
-            update_at = response.getJSONObject(i).get("updated_at").toString();
+            updated_at = response.getJSONObject(i).get("updated_at").toString();
             merged_at = response.getJSONObject(i).get("merged_at").toString();
 
-            if(checkDate(start,end,created_at) || checkDate(start,end,closed_at) || checkDate(start,end,update_at) || checkDate(start,end,merged_at)) {
+            if( checkDate(start,end,closed_at) || checkDate(start,end,updated_at) || checkDate(start,end,merged_at) || checkDate(start,end,created_at) ) {
                 pullRequests.add(new PullRequests(id, user, title, state, created_at));
             }
         }
