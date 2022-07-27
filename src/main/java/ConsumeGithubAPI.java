@@ -11,14 +11,13 @@ import java.util.Date;
 
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 public class ConsumeGithubAPI {
     public ArrayList<PullRequests> getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws IOException {
         ArrayList<PullRequests> listOfPullRequests;
         String jsonResponse = makeHttpRequest(createUrl(owner,repositoryName));
-        listOfPullRequests = parseJson(jsonResponse);
-        
+        listOfPullRequests = parseJson(jsonResponse, startDate,endDate);
+
         return listOfPullRequests;
     }
 
@@ -32,7 +31,7 @@ public class ConsumeGithubAPI {
     static String makeHttpRequest(URL url) throws IOException {
         String jsonResponse = "";
         if(url == null) {
-            return "invalid url";
+            return "Error 404 User or Repo Not Found";
         }
         HttpURLConnection connection = null;
         InputStream stream = null;
@@ -49,7 +48,7 @@ public class ConsumeGithubAPI {
                 jsonResponse = readFromInputStream(stream);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new MalformedURLException("Error 404 User or Repo Not Found");
         } finally {
             if (connection != null)
                 connection.disconnect();
@@ -58,22 +57,14 @@ public class ConsumeGithubAPI {
         }
         return jsonResponse;
     }
-    private static Date formatDate(String date){
-        Date format = null;
-    try{
-        format = new SimpleDateFormat("yyyy-MM-dd").parse(date);
-        return format;
-    } catch (Exception e) {
-        return null;
-    }
-    }
-    private static boolean checkDate(String start, String end, String createdDate){
-        Date startDate = formatDate(start);
-        Date endDate = formatDate(end);
-        Date dateCreated = formatDate(createdDate);
 
+    private static boolean checkDate(String start, String end, String createdDate){
         try{
-            return dateCreated.after(startDate) && dateCreated.before(endDate);
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-mm-dd");
+            Date startDate = format.parse(start.substring(0,10));
+            Date endDate = format.parse(end.substring(0,10));
+            Date created_at = format.parse(createdDate.substring(0,10));
+            return created_at.after(startDate) && created_at.before(endDate);
         } catch (Exception e) {
             return false;
         }
@@ -89,28 +80,34 @@ public class ConsumeGithubAPI {
             line = reader.readLine();
         }
         return output.toString();
-
     }
 
-    static ArrayList<PullRequests> parseJson(String jsonResponse) throws JSONException {
+    static ArrayList<PullRequests> parseJson(String jsonResponse, String start, String end) throws JSONException {
         String id;
         String user;
         String title;
-        String dateCreated;
+        String created_at;
         String state;
-
+        String closed_at;
+        String update_at;
+        String merged_at;
 
         ArrayList<PullRequests> pullRequests = new ArrayList<>();
 
         JSONArray response = new JSONArray(jsonResponse);
         for (int i=0;i<response.length();i++){
             id = response.getJSONObject(i).get("id").toString();
-            user = response.getJSONObject(i).get("user").toString();
+            user = response.getJSONObject(i).getJSONObject("user").get("login").toString();
             title = response.getJSONObject(i).get("title").toString();
-            dateCreated = response.getJSONObject(i).get("created_at").toString();
             state = response.getJSONObject(i).get("state").toString();
+            created_at = response.getJSONObject(i).get("created_at").toString().substring(0,10);
+            closed_at = response.getJSONObject(i).get("closed_at").toString();
+            update_at = response.getJSONObject(i).get("updated_at").toString();
+            merged_at = response.getJSONObject(i).get("merged_at").toString();
 
-                pullRequests.add(new PullRequests(id, user, title, state, dateCreated));
+            if(checkDate(start,end,created_at) || checkDate(start,end,closed_at) || checkDate(start,end,update_at) || checkDate(start,end,merged_at)) {
+                pullRequests.add(new PullRequests(id, user, title, state, created_at));
+            }
         }
         return pullRequests;
     }
