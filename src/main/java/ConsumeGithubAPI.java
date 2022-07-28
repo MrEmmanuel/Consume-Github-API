@@ -41,8 +41,6 @@ public class ConsumeGithubAPI {
         try {
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            connection.setReadTimeout(10000);
-            connection.setConnectTimeout(20000);
             connection.connect();
 
             if (connection.getResponseCode() == 200){
