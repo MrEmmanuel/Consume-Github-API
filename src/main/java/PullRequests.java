@@ -1,9 +1,9 @@
 public class PullRequests {
-   public String id;
-   public String user;
-   public String title;
-   public String state;
-   public String created_at;
+   private String id;
+   private String user;
+   private String title;
+   private String state;
+   private String created_at;
 
     public PullRequests(String id, String user, String title, String state, String dateCreated){
         this.id = id;

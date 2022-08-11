@@ -2,32 +2,35 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.text.SimpleDateFormat;
+import java.net.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 
 public class ConsumeGithubAPI {
     public static void getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws IOException {
-        ArrayList<PullRequests> listOfPullRequests;
-        String jsonResponse = makeHttpRequest(createUrl(owner,repositoryName));
-        listOfPullRequests = parseJson(jsonResponse, startDate,endDate);
+        ArrayList<PullRequests> listOfPullRequests = new ArrayList<>();
+        ArrayList<PullRequests> pullList;
 
+        int page = 1;
+        String jsonResponse = makeHttpRequest(createUrl(owner,repositoryName, page));
+        JSONArray response = new JSONArray(jsonResponse);
+        while(!response.isEmpty()){
+            pullList = parseJson(jsonResponse, startDate,endDate);
+            listOfPullRequests.addAll(pullList);
+            page++;
+            jsonResponse = makeHttpRequest(createUrl(owner,repositoryName,page));
+            response = new JSONArray(jsonResponse);
+        }
         System.out.println(listOfPullRequests);
     }
 
-    public static URL createUrl(String user, String repoName) throws MalformedURLException {
+    public static URL createUrl(String user, String repoName, int pageNumber) throws MalformedURLException {
 
-        String urlString = "https://api.github.com/repos/" + user + "/" + repoName +"/pulls";
-        URL url = new URL(urlString);
-        return url;
+        String urlString = "https://api.github.com/repos/" + user + "/" + repoName +"/pulls?state=all&per_page=100&page=" + pageNumber;
+        return new URL(urlString);
     }
 
     static String makeHttpRequest(URL url) throws IOException {
@@ -38,9 +41,11 @@ public class ConsumeGithubAPI {
         HttpURLConnection connection = null;
         InputStream stream = null;
 
+
         try {
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/json");
             connection.connect();
 
             if (connection.getResponseCode() == 200){
@@ -58,22 +63,17 @@ public class ConsumeGithubAPI {
         return jsonResponse;
     }
     public static LocalDate getDateFromString(String string, DateTimeFormatter format) {
-
-        LocalDate date = LocalDate.parse(string, format);
-
-        return date;
+        return LocalDate.parse(string, format);
     }
     private static boolean checkDate(String start, String end, String createdDate){
 
         DateTimeFormatter formatDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         try{
+            LocalDate startDate = start != null? getDateFromString(start, formatDate): null;
+            LocalDate endDate = end != null? getDateFromString(end, formatDate): null;
+            LocalDate created_at = createdDate != null? getDateFromString(createdDate, formatDate): null;
 
-            LocalDate startDate = getDateFromString(start, formatDate);
-            LocalDate endDate = getDateFromString(end, formatDate);
-            LocalDate created_at = getDateFromString(createdDate, formatDate);
-            boolean results = created_at.isAfter(startDate) && created_at.isBefore(endDate);
-            return results;
-
+            return (created_at.isAfter(startDate) || created_at.isEqual(startDate)) && (created_at.isBefore(endDate) || created_at.isEqual(endDate));
         } catch (Exception e) {
             return false;
         }
@@ -114,9 +114,13 @@ public class ConsumeGithubAPI {
             updated_at = response.getJSONObject(i).get("updated_at").toString();
             merged_at = response.getJSONObject(i).get("merged_at").toString();
 
-            if( checkDate(start,end,closed_at) || checkDate(start,end,updated_at) || checkDate(start,end,merged_at) || checkDate(start,end,created_at) ) {
+            if( (checkDate(start,end,closed_at) && closed_at != null) ||
+                    (checkDate(start,end,updated_at) && updated_at != null) ||
+                    (checkDate(start,end,merged_at) && merged_at != null) ||
+                    (checkDate(start,end,created_at) && created_at !=null)) {
+
                 pullRequests.add(new PullRequests(id, user, title, state, created_at));
-            }
+             }
         }
         return pullRequests;
     }
