@@ -10,7 +10,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 public class ConsumeGithubAPI {
-    public static void getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws IOException {
+    public static void getPullRequests(String owner, String repositoryName, String startDate, String endDate) throws Exception {
         ArrayList<PullRequests> listOfPullRequests = new ArrayList<>();
         ArrayList<PullRequests> pullList;
 
@@ -33,15 +33,13 @@ public class ConsumeGithubAPI {
         return new URL(urlString);
     }
 
-    static String makeHttpRequest(URL url) throws IOException {
+    private static String makeHttpRequest(URL url) throws Exception {
         String jsonResponse = "";
         if(url == null) {
-            return "Error 404 User or Repo Not Found";
+            throw new Exception("Error 404 User or Repo Not Found");
         }
         HttpURLConnection connection = null;
         InputStream stream = null;
-
-
         try {
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
@@ -51,9 +49,11 @@ public class ConsumeGithubAPI {
             if (connection.getResponseCode() == 200){
                 stream = connection.getInputStream();
                 jsonResponse = readFromInputStream(stream);
+            }else{
+                throw new Exception("Error 404 User or Repo Not Found");
             }
-        } catch (IOException e) {
-            throw new MalformedURLException("Error 404 User or Repo Not Found");
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             if (connection != null)
                 connection.disconnect();
@@ -62,21 +62,29 @@ public class ConsumeGithubAPI {
         }
         return jsonResponse;
     }
-    public static LocalDate getDateFromString(String string, DateTimeFormatter format) {
-        return LocalDate.parse(string, format);
-    }
-    private static boolean checkDate(String start, String end, String createdDate){
 
-        DateTimeFormatter formatDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        try{
-            LocalDate startDate = start != null? getDateFromString(start, formatDate): null;
-            LocalDate endDate = end != null? getDateFromString(end, formatDate): null;
-            LocalDate created_at = createdDate != null? getDateFromString(createdDate, formatDate): null;
-
-            return (created_at.isAfter(startDate) || created_at.isEqual(startDate)) && (created_at.isBefore(endDate) || created_at.isEqual(endDate));
-        } catch (Exception e) {
-            return false;
+    private static LocalDate getDateFromString(String string) {
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        if(!string.equalsIgnoreCase("null")) {
+            return LocalDate.parse(string, format);
+        }else{
+            return null;
         }
+    }
+
+    private static boolean checkDate(String start, String end, String createdDate){
+        LocalDate startDate, endDate, createdAt;
+        try{
+            if(!createdDate.equalsIgnoreCase("null")) {
+                startDate =getDateFromString(start);
+                endDate = getDateFromString(end);
+                createdAt = getDateFromString(createdDate.substring(0, 10));
+                return ((createdAt.isAfter(startDate) || createdAt.isEqual(startDate)) && (createdAt.isBefore(endDate) || createdAt.isEqual(endDate)));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     private static String readFromInputStream(InputStream stream) throws IOException {
@@ -88,39 +96,38 @@ public class ConsumeGithubAPI {
             output.append(line);
             line = reader.readLine();
         }
+        reader.close();
         return output.toString();
     }
 
-    static ArrayList<PullRequests> parseJson(String jsonResponse, String start, String end) throws JSONException {
+    private static ArrayList<PullRequests> parseJson(String jsonResponse, String start, String end) throws JSONException {
         String id;
         String user;
         String title;
-        String created_at;
+        String createdAt;
         String state;
-        String closed_at;
-        String updated_at;
-        String merged_at;
+        String closedAt;
+        String updatedAt;
+        String mergedAt;
 
         ArrayList<PullRequests> pullRequests = new ArrayList<>();
-
         JSONArray response = new JSONArray(jsonResponse);
         for (int i=0;i<response.length();i++){
             id = response.getJSONObject(i).get("id").toString();
             user = response.getJSONObject(i).getJSONObject("user").get("login").toString();
             title = response.getJSONObject(i).get("title").toString();
             state = response.getJSONObject(i).get("state").toString();
-            created_at = response.getJSONObject(i).get("created_at").toString().substring(0,10);
-            closed_at = response.getJSONObject(i).get("closed_at").toString();
-            updated_at = response.getJSONObject(i).get("updated_at").toString();
-            merged_at = response.getJSONObject(i).get("merged_at").toString();
+            createdAt = response.getJSONObject(i).get("created_at").toString().substring(0,10);
+            closedAt = response.getJSONObject(i).get("closed_at").toString();
+            updatedAt = response.getJSONObject(i).get("updated_at").toString();
+            mergedAt = response.getJSONObject(i).get("merged_at").toString();
 
-            if( (checkDate(start,end,closed_at) && closed_at != null) ||
-                    (checkDate(start,end,updated_at) && updated_at != null) ||
-                    (checkDate(start,end,merged_at) && merged_at != null) ||
-                    (checkDate(start,end,created_at) && created_at !=null)) {
-
-                pullRequests.add(new PullRequests(id, user, title, state, created_at));
-             }
+            if( (checkDate(start,end,createdAt)) ||
+                    (checkDate(start,end,closedAt)) ||
+                    (checkDate(start,end,updatedAt)) ||
+                    (checkDate(start,end,mergedAt))) {
+                pullRequests.add(new PullRequests(id, user, title, state, createdAt));
+            }
         }
         return pullRequests;
     }
